@@ -5,63 +5,66 @@ import math
 np.random.seed(0)
 
 class ConvNet():
-    
-    def __init__(self):
-		# Stores...
+	
+	def __init__(self):
 		self.inputImg = None # The input data
 		self.strides = [] # The stride length of each layer for convolution
-        self.recfield = [] # The receptive field in each layer for convolution 
-        self.lengths = []
-        self.widths = []
-        self.depths = []
+		self.recfield = [] # The receptive field in each layer for convolution
+		self.lengths = []
+		self.widths = []
+		self.depths = []
 		self.weights = [] # The weights for convolution filters
-		
-        self.nodes = [] # The number of nodes in each layer of the FC
-        self.fcweights = [] # The weights and biases (as tuples) for the fc layer
+		self.nodes = [] # The number of nodes in each layer of the FC
+		self.fcweights = [] # The weights and biases (as tuples) for the fc layer
 		self.regLossParam = 1e-3 # Regularization strength
+		
+	def addInput(self, inpImage):  # Assign the input image
+		inpImage = np.array(inpImage)
+		self.inputImg = inpImage
+		if(len(inpImage.shape)<3):
+			num3 = 1
+			numrows = inpImage.shape[0]
+			numcols = inpImage.shape[1]
+		else:
+			num3 = inpImage.shape[0]
+			numrows = inpImage.shape[1]
+			numcols = inpImage.shape[2]
 
-
-    def addInput(self, inpImage):
-        # Assign the input image 
-        self.inputImg = inpImage
-        numrows = len(inpImage)
-        numcols = len(inpImage[0])
-        num3 = len(inpImage[0][0])
-        self.lengths.append(numcols)
-        self.widths.append(numrows)
-        self.depth.append(num3)
-
-
-    def volume(self, s, r, f):
+		self.lengths.append(numcols)
+		self.widths.append(numrows)
+		self.depths.append(num3)
+		
+	def volume(self, s, r, f):
 		"""
 		Creates a new Conv. volume.
-        s - stride length for convolving the previous layer to create this new volume
-        r - receptive field for convolving the previous layer to create this new volume
-        f - number of filters, or in other words, the depth of this new volume
+		s - stride length for convolving the previous layer to create this new volume
+		r - receptive field for convolving the previous layer to create this new volume
+		f - number of filters, or in other words, the depth of this new volume
 		"""
-
-        # Depth of previous layer
-        prevd = self.depths[-1]
-        prevw = self.widths[-1]
-        prevl = self.lengths[-1]
-
+		
+		# Depth of previous layer
+		prevd = self.depths[-1]
+		prevw = self.widths[-1]
+		prevl = self.lengths[-1]
+		
 		# Initializing the weights
-        W = []
+		W = []
 		#b = np.zeros((1, stre))
-        for i in range(f):
-            W.append(np.random.randn(r, r, prevd))
-            
-        numrows = (prevw - f)/s + 1
-        numcols = (prevl - f)/s +1
-        num3 = f
-
+		for i in range(f):
+			W.append(np.random.randn(prevd, r, r))
+		
+		W = np.array(W)
+		numrows = (prevw - r)/s + 1
+		numcols = (prevl - r)/s +1
+		num3 = f
+		
 		# Store them
 		self.weights.append(W)
-        self.strides.append(s)
-        self.recfield.append(r)
-        self.lengths.append(numcols)
-        self.widths.append(numrows)
-        self.depth.append(num3)
+		self.strides.append(s)
+		self.recfield.append(r)
+		self.lengths.append(numcols)
+		self.widths.append(numrows)
+		self.depths.append(num3)
 
 
 	def activFunc(self, inputArray):
@@ -78,29 +81,63 @@ class ConvNet():
 		prevOut - Output from the previous layer
 		W, b = Weight and bias of this layer
 		"""
-        f = len(W[0][0][0])
-        l = len(prevOut[0])
-        w = len(prevOut)
-        d = len(prevOut[0][0])
-        for i in range(f):   #Run loop to create f-filters
-            for j in range(d):   #Run over entire depth of prevOut volume
-                for k in range((l-f)/s + 1):  #Convolve around length
-                    for m in range((w - f)/s + 1):
+		prevOut = np.array(prevOut)
 
+		if(len(W.shape)<4):
+			f = 1
+		else:
+			f = W.shape[0]
 
-		layerOutput = np.dot(prevOut, W) #===================
-		return self.activFunc(layerOutput)
+		if(len(prevOut.shape)<3):
+			d = 1
+			w = prevOut.shape[0]
+			l = prevOut.shape[1]
+		else:
+			d = prevOut.shape[0]
+			w = prevOut.shape[1]
+			l = prevOut.shape[2]
 
+		volOutput = np.zeros((d,w,l))
+		for i in range(f):   #Run loop to create f-filters
+			for k in range(int((w - r)/s + 1)):  #Convolve around width
+				for m in range(int((l - r)/s + 1)):   #Convolve around length
+					for j in range(d):   #Run over entire depth of prevOut volume
+						volOutput[i][m][k] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
+		volOutput = np.array(volOutput)
 
+		return self.activFunc(volOutput)
+		
 	def finalVolumeOutput(self, prevOut, W, s, r):
 		"""
 		Returns the output of the final layer.
 		Similar to hiddenLayerOutput(), but without 
 		the activation function.
 		"""
+		prevOut = np.array(prevOut)
 
-		final_output = np.dot(prevOut, W) #===============
-		return final_output
+		if(len(W.shape)<4):
+			f = 1
+		else:
+			f = W.shape[0]
+
+		if(len(prevOut.shape)<3):
+			d = 1
+			w = prevOut.shape[0]
+			l = prevOut.shape[1]
+		else:
+			d = prevOut.shape[0]
+			w = prevOut.shape[1]
+			l = prevOut.shape[2]
+
+		finalVolOutput = np.zeros((d,w,l))
+		for i in range(f):   #Run loop to create f-filters
+			for k in range(int((w - r)/s + 1)):  #Convolve around width
+				for m in range(int((l - r)/s + 1)):   #Convolve around length
+					for j in range(d):   #Run over entire depth of prevOut volume
+						finalVolOutput[i][m][k] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
+		finalVolOutput = np.array(finalVolOutput)
+		#layerOutput = np.dot(prevOut, W) #==================
+		return finalVolOutput
 
 
 	def getVolumeOutput(self, n):
@@ -110,13 +147,13 @@ class ConvNet():
 		penLayer = len(self.weights) - 1 # The penultimate volume
 		
 		# h stores the output of the current layer
-		h = self.input
+		h = np.array(self.inputImg)
 
 		# Loop through the hidden layers
 		for i in range(min(n, penLayer)):
 			W = self.weights[i]   #======================
-            s = self.strides[i]
-            r = self.recfield[i]
+			s = self.strides[i]
+			r = self.recfield[i]
 			h = self.hiddenVolumeOutput(h, W, s, r) #===================
 
 		# Return the output
@@ -124,177 +161,11 @@ class ConvNet():
 			return h
 		else:
 			W = self.weights[n-1]
-            s = self.strides[n-1]
-            r = self.recfield[n-1]
-			return self.finalOutput(h, W, s, r) #==================
+			s = self.strides[n-1]
+			r = self.recfield[n-1]
+			return self.finalVolumeOutput(h, W, s, r) #==================
 
 
 
 #===============================================================================================================================================
 #===============================================================================================================================================
-
-	def fcaddInput(self, inputArray):
-		"""
-		Set the input data.
-		"""
-		self.input = inputArray
-		self.nodes.append(len(inputArray[0]))
-
-
-	def layer(self, n):
-		"""
-		Creates a new layer.
-		n - the number of nodes in the layer.
-		"""
-		# Number of nodes in previous layer
-		nPrev = self.nodes[-1]
-
-		# Initializing the weights and biases
-		W = np.random.randn(nPrev, n) * math.sqrt(2.0/nPrev) # Recommended initialization method
-		b = np.zeros((1, n))
-
-		# Store them
-		self.nodes.append(n)
-		self.weights.append((W, b))
-
-
-	def activFunc(self, inputArray):
-		"""
-		The activation function for the neurons in the network.
-		"""
-		# ReLU activation
-		return np.maximum(0, inputArray)
-
-
-	def hiddenLayerOutput(self, prevOut, W, b):
-		"""
-		Returns the output of a hidden layer.
-		prevOut - Output from the previous layer
-		W, b = Weight and bias of this layer
-		"""
-		layerOutput = np.dot(prevOut, W) + b
-		return self.activFunc(layerOutput)
-
-
-	def finalOutput(self, prevOut, W, b):
-		"""
-		Returns the output of the final layer.
-		Similar to hiddenLayerOutput(), but without 
-		the activation function.
-		"""
-		final_output = np.dot(prevOut, W) + b
-		return final_output
-
-
-	def getLayerOutput(self, n):
-		"""
-		Returns the output of the nth layer of the neural network.
-		n = 0 is the input layer.
-		n = len(self.weights) is the output layer.
-		"""
-		penLayer = len(self.weights) - 1 # The penultimate layer
-		
-		# h stores the output of the current layer
-		h = self.input
-
-		# Loop through the hidden layers
-		for i in range(min(n, penLayer)):
-			(W, b) = self.weights[i]
-			h = self.hiddenLayerOutput(h, W, b)
-
-		# Return the output
-		if n <= penLayer:
-			return h
-		else:
-			(W, b) = self.weights[n-1]
-			return self.finalOutput(h, W, b)
-
-
-	def dataLoss(self, predResults, trueResults):
-		"""
-		Returns the data loss.
-		"""
-		# L2 loss
-		loss = np.square(trueResults - predResults)
-		return loss/len(trueResults)
-
-
-	def regLoss(self):
-		"""
-		Returns the regularization loss.
-		"""
-		if self.regLossParam == 0:
-			return 0
-		else:
-			squaredTotal = 0
-			for (W, _) in self.weights:
-				squaredTotal += np.sum(np.square(W))
-
-			loss = 0.5 * self.regLossParam * squaredTotal
-			return loss
-
-
-	def backPropagation(self, trueResults):
-		"""
-		Updates weights by carrying out backpropagation.
-		trueResults = the expected output from the neural network.
-		"""
-		predResults = self.getLayerOutput(len(self.weights)) # The output from the neural network
-		
-		# Parameters
-		h = 0.001 * np.ones(predResults.shape) # For numerical calculation of the derivative
-		learningRate = 1e-5
-
-		# The derivative of the loss function with respect to the output:
-		doutput = (self.dataLoss(predResults + h, trueResults) - self.dataLoss(predResults - h, trueResults))/(2*h)
-		
-		nPrev = len(self.weights) # Index keeping track of the previous layer
-
-		# Loop over the layers
-		while nPrev - 1 >= 0:
-
-			# If the current layer is not the output layer:
-			if nPrev != len(self.weights):
-				# Backprop into hidden layer
-				dhidden = np.dot(doutput, W.T)
-				# Backprop the ReLU non-linearity
-				dhidden[prevLayer <= 0] = 0
-			else:
-				dhidden = doutput
-
-			nPrev += -1
-			prevLayer = self.getLayerOutput(nPrev) # The output of the previous layer
-			
-			# Find the gradients of the weights and biases
-			(W, b) = self.weights[nPrev]
-			dW = np.dot(prevLayer.T, dhidden)
-			db = np.sum(dhidden, axis=0, keepdims=True)
-
-			dW += self.regLossParam * W # Regularization gradient
-			
-			# Update the weights and biases
-			W += -learningRate * dW
-			b += -learningRate * db
-			self.weights[nPrev] = (W, b)
-
-			doutput = dhidden # Move to the previous layer
-
-			
-	def train(self, Y, epochs):
-		"""
-		Train the neural network.
-		Y = the expected results from the neural network.
-		epochs = the number of times the neural network should 'learn'.
-		"""
-		# Run backPropagation() 'epochs' number of times.
-		for i in range(epochs):
-			self.backPropagation(Y)
-
-
-	def predict(self, X):
-		"""
-		Make predictions.
-		X = input data for the neural network to predict.
-		"""
-		self.input = X
-		return self.getLayerOutput(len(self.weights))
