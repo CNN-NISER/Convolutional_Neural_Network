@@ -96,8 +96,11 @@ class ConvNet():
 			d = prevOut.shape[0]
 			w = prevOut.shape[1]
 			l = prevOut.shape[2]
+		
+		wid = int((w - r)/s + 1)
+		leng = int((l - r)/s + 1)
 
-		volOutput = np.zeros((d,w,l))
+		volOutput = np.zeros(f, leng, wid)
 		for i in range(f):   #Run loop to create f-filters
 			for k in range(int((w - r)/s + 1)):  #Convolve around width
 				for m in range(int((l - r)/s + 1)):   #Convolve around length
@@ -129,7 +132,11 @@ class ConvNet():
 			w = prevOut.shape[1]
 			l = prevOut.shape[2]
 
-		finalVolOutput = np.zeros((d,w,l))
+		x = int((w - r)/s + 1)
+		y = int((l - r)/s + 1)
+		print(f,y,x)
+
+		finalVolOutput = np.zeros(f, y, x)  #d,w,l
 		for i in range(f):   #Run loop to create f-filters
 			for k in range(int((w - r)/s + 1)):  #Convolve around width
 				for m in range(int((l - r)/s + 1)):   #Convolve around length
