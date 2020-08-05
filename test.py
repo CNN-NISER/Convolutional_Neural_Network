@@ -5,6 +5,6 @@ from convnet import ConvNet
 model = ConvNet()
 x = np.random.randn(3,3,3)
 model.addInput(x) # Input layer
-model.volume(1,2,2) # Add Convolutional volume
-#model.volume(1,2,3)
-print(model.getVolumeOutput(1))  # Get final output from convolutional layer
+model.cvolume(1,2,2) # Add Convolutional volume
+model.pmaxvolume(2) # Add Pooling layer
+print(model.getVolumeOutput(2))  # Get final output layer

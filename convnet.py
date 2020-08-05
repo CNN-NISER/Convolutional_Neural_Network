@@ -34,19 +34,18 @@ class ConvNet():
 		self.widths.append(numrows)
 		self.depths.append(num3)
 		
-	def volume(self, s, r, f):
+	def cvolume(self, s, r, f):
 		"""
 		Creates a new Conv. volume.
 		s - stride length for convolving the previous layer to create this new volume
 		r - receptive field for convolving the previous layer to create this new volume
 		f - number of filters, or in other words, the depth of this new volume
 		"""
-		
-		# Depth of previous layer
+		# Depth, width and length of previous layer
 		prevd = self.depths[-1]
 		prevw = self.widths[-1]
 		prevl = self.lengths[-1]
-		
+
 		# Initializing the weights
 		W = []
 		#b = np.zeros((1, stre))
@@ -54,6 +53,8 @@ class ConvNet():
 			W.append(np.random.randn(prevd, r, r))
 		
 		W = np.array(W)
+
+		# The dimensions of the layer after convolution with the above weight array
 		numrows = (prevw - r)/s + 1
 		numcols = (prevl - r)/s +1
 		num3 = f
@@ -66,6 +67,26 @@ class ConvNet():
 		self.widths.append(numrows)
 		self.depths.append(num3)
 
+	def pmaxvolume(self, r):
+		"""
+		Creates a new max pooling layer.
+		r - the receptive field around which the max value has to be taken.
+		    E.g - If r = 2, max pooling is done withing 2x2 sub matrices.
+		"""
+		# Depth, width and length of previous layer
+		prevd = self.depths[-1]
+		prevw = self.widths[-1]
+		prevl = self.lengths[-1]
+
+		# Store them
+		self.weights.append(None)
+		self.strides.append(r)
+		self.recfield.append(r)
+
+		#The dimensions of the layer after pooling
+		self.lengths.append(prevl/r)
+		self.widths.append(prevw/r)
+		self.depths.append(prevd)
 
 	def activFunc(self, inputArray):
 		"""
@@ -75,76 +96,76 @@ class ConvNet():
 		return np.maximum(0, inputArray)
 
 
-	def hiddenVolumeOutput(self, prevOut, W, s, r):
+	def hiddenVolumeOutput(self, prevOut, W, s, r, d, w, l):
 		"""
-		Returns the output of Convolutional Layers.
+		Returns the output of the Convolutional/Pooling Layer.
 		prevOut - Output from the previous layer
-		W, b = Weight and bias of this layer
+		W = Weight of this layer
 		"""
 		prevOut = np.array(prevOut)
+		d = int(d)
+		w = int(w)
+		l = int(l)
+		volOutput = np.zeros((d, l, w))
 
-		if(len(W.shape)<4):
-			f = 1
+		if(W is None):
+			for j in range(d):   #Run over entire depth of prevOut volume
+				for k in range(w):  #Convolve around width
+					for m in range(l):   #Convolve around length
+						volOutput[j][m][k] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
+						
+			volOutput = np.array(volOutput)
+			return volOutput
+
 		else:
-			f = W.shape[0]
-
-		if(len(prevOut.shape)<3):
-			d = 1
-			w = prevOut.shape[0]
-			l = prevOut.shape[1]
-		else:
-			d = prevOut.shape[0]
-			w = prevOut.shape[1]
-			l = prevOut.shape[2]
-		
-		wid = int((w - r)/s + 1)
-		leng = int((l - r)/s + 1)
-
-		volOutput = np.zeros((f, leng, wid))
-		for i in range(f):   #Run loop to create f-filters
-			for k in range(int((w - r)/s + 1)):  #Convolve around width
-				for m in range(int((l - r)/s + 1)):   #Convolve around length
-					for j in range(d):   #Run over entire depth of prevOut volume
+			if(len(W.shape)<4):
+				f = 1
+			else:
+				f = W.shape[0]
+			
+			for i in range(f):   #Run loop to create f-filters
+				for k in range(w):  #Convolve around width
+					for m in range(l):   #Convolve around length
+						#for j in range(d):   #Run over entire depth of prevOut volume
 						volOutput[i][m][k] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
-		volOutput = np.array(volOutput)
-
-		return self.activFunc(volOutput)
+						
+			volOutput = np.array(volOutput)
+			return self.activFunc(volOutput)
 		
-	def finalVolumeOutput(self, prevOut, W, s, r):
+	def finalVolumeOutput(self, prevOut, W, s, r, d, w, l):
 		"""
 		Returns the output of the final layer.
-		Similar to hiddenLayerOutput(), but without 
-		the activation function.
+		Similar to hiddenLayerOutput(), but without the activation function.
 		"""
 		prevOut = np.array(prevOut)
-
-		if(len(W.shape)<4):
-			f = 1
+		d = int(d)
+		w = int(w)
+		l = int(l)
+		finalVolOutput = np.zeros((d, l, w))  #d,w,l
+		print(d,w,l)
+		if(W is None):
+			for j in range(d):   #Run over entire depth of prevOut volume
+				for k in range(w):  #Convolve around width
+					for m in range(l):   #Convolve around length
+						finalVolOutput[j][m][k] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
+						
+			finalVolOutput = np.array(finalVolOutput)
+			return finalVolOutput
+			
 		else:
-			f = W.shape[0]
-
-		if(len(prevOut.shape)<3):
-			d = 1
-			w = prevOut.shape[0]
-			l = prevOut.shape[1]
-		else:
-			d = prevOut.shape[0]
-			w = prevOut.shape[1]
-			l = prevOut.shape[2]
-
-		x = int((w - r)/s + 1)
-		y = int((l - r)/s + 1)
-		print(f,y,x)
-
-		finalVolOutput = np.zeros((f, y, x))  #d,w,l
-		for i in range(f):   #Run loop to create f-filters
-			for k in range(int((w - r)/s + 1)):  #Convolve around width
-				for m in range(int((l - r)/s + 1)):   #Convolve around length
-					for j in range(d):   #Run over entire depth of prevOut volume
+			if(len(W.shape)<4):
+				f = 1
+			else:
+				f = W.shape[0]
+			
+			for i in range(f):   #Run loop to create f-filters
+				for k in range(w):  #Convolve around width
+					for m in range(l):   #Convolve around length
+						#for j in range(d):   #Run over entire depth of prevOut volume
 						finalVolOutput[i][m][k] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
-		finalVolOutput = np.array(finalVolOutput)
-		#layerOutput = np.dot(prevOut, W) #==================
-		return finalVolOutput
+					
+			finalVolOutput = np.array(finalVolOutput)
+			return finalVolOutput
 
 
 	def getVolumeOutput(self, n):
@@ -158,10 +179,13 @@ class ConvNet():
 
 		# Loop through the hidden layers
 		for i in range(min(n, penLayer)):
-			W = self.weights[i]   #======================
+			W = self.weights[i]   
 			s = self.strides[i]
 			r = self.recfield[i]
-			h = self.hiddenVolumeOutput(h, W, s, r) #===================
+			d = self.depths[i]
+			w = self.widths[i]
+			l = self.lengths[i]
+			h = self.hiddenVolumeOutput(h, W, s, r, d, w, l) 
 
 		# Return the output
 		if n <= penLayer:
@@ -170,7 +194,10 @@ class ConvNet():
 			W = self.weights[n-1]
 			s = self.strides[n-1]
 			r = self.recfield[n-1]
-			return self.finalVolumeOutput(h, W, s, r) #==================
+			d = self.depths[n]
+			w = self.widths[n]
+			l = self.lengths[n]
+			return self.finalVolumeOutput(h, W, s, r, d, w, l) #==================
 
 
 
