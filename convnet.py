@@ -217,14 +217,13 @@ class ConvNet():
 		"""
 		Creates a fully connected layer; implements forward pass and
 		backpropagation.
-
-		n_nodes is the no.of nodes in the fully connected layer.
-		input_fc is the input to the fully connected layer.
+		n_nodes - the no.of nodes in the fully connected layer.
+		input_fc - the input to the fully connected layer.
 		"""
 		# store the shape of input to be used for backpropagation
 		input_fc_shape = input_fc.shape
 
-		# flattens the input
+		# flatten the input
 		input_fc = input_fc.flatten()
 		len_input_fc = len(input_fc)
 
@@ -237,61 +236,25 @@ class ConvNet():
 		# Output from the FC layer
 		self.output_fc = activFunc(totals)
 
-		# backpropagation
-
 		h = 0.001 * np.ones(self.output_fc.shape)
-
-		#dL_d_out
 		d_L_d_out = (self.dataLoss(self.output_fc + h, trueResults) - self.dataLoss(self.output_fc - h, trueResults))/(2*h)
-
-		#d_out_d_t
 		d_out_d_t = np.where(totals <= 0, 0, 1)
-
-		# Some more gradients
 		d_t_d_w = input_fc
-
-		#dt_db = 1
-
 		d_t_d_inputs = self.fc_weights
-
-		# dL / dt = (dL/dout)*(dout/dt)
 		d_L_d_t = d_L_d_out * d_out_d_t
 
 		# Gradients of loss wrt Weights of FC layer and Input of FC layers
 		# The shape of input_fc is now (len_input_fc, 1) after flattening
 		# d_L_d_t.shape = (n_nodes,1)
 		# Adding appropriate axes to d_L_d_t and d_t_d_w(same as input_fc) for . product
-
 		d_L_d_w = np.dot(d_t_d_w[np.newaxis].T, d_L_d_t[np.newaxis])
 
 		# d_L_d_inputs should have the dimensions of input_fc
-
 		d_L_d_inputs = np.dot(d_t_d_inputs, d_L_d_t)
 
-		# The dimension of d_L_d_inputs is (len_input_fc,)
-		# So, changing the shape so it can be given to maxpool's backprop.
-
+		# The dimension of d_L_d_inputs is (len_input_fc,), so, changing the shape so it can be given to maxpool's backprop.
 		d_L_d_inputs_final = d_L_d_inputs.reshape(input_fc_shape)
-
-		# Gradient Descent
 
 		self.fc_weights -= learning_rate * d_L_d_w
 
 		return d_L_d_inputs_final
-
-
-
-
-
-
-
-
-
-
-
-			#==================
-
-
-
-#===============================================================================================================================================
-#===============================================================================================================================================
