@@ -18,6 +18,11 @@ class ConvNet():
 		self.fcweights = [] # The weights and biases (as tuples) for the fc layer
 		self.regLossParam = 1e-3 # Regularization strength
 		
+		# Added
+		self.fc_weights = []
+		self.fc_bias = []
+		self.fc_output = []
+		
 	def addInput(self, inpImage):  # Assign the input image
 		inpImage = np.array(inpImage)
 		self.inputImg = inpImage
@@ -197,7 +202,42 @@ class ConvNet():
 			d = self.depths[n]
 			w = self.widths[n]
 			l = self.lengths[n]
-			return self.finalVolumeOutput(h, W, s, r, d, w, l) #==================
+			return self.finalVolumeOutput(h, W, s, r, d, w, l)
+		
+	def fullyConn(self, n_nodes, input_fc):
+
+		"""
+		Creates a fully connected layer; implements forward pass and
+		backpropagation.
+
+		n_nodes is the no.of nodes in the fully connected layer.
+		input_fc is the input to the fully connected layer.
+		"""
+		# flattens the input
+		input_fc = input_fc.flatten()
+		len_input_fc = len(input_fc)
+
+		# Initialise the weights and biases for the FC layer
+		self.fc_weights = np.random.randn(len_input_fc, n_nodes)
+		self.fc_bias = np.zeros(n_nodes)
+
+		totals = np.dot(input_fc, self.fc_weights) + self.fc_bias
+
+		# Output from the FC layer
+		self.output_fc = activFunc(totals)
+
+		return self.output_fc
+
+
+	def fc_backprop(self, predResults, trueResults, learning_rate):
+
+		h = 0.001 * np.ones(pred_results.shape)
+
+		#dL_d_out
+		d_L_d_out = (self.dataLoss(predResults + h, trueResults) - self.dataLoss(predResults - h, trueResults))/(2*h)
+	
+	
+	#==================
 
 
 
