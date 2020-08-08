@@ -17,11 +17,8 @@ class ConvNet():
 		self.nodes = [] # The number of nodes in each layer of the FC
 		#self.fcweights = [] # The weights and biases (as tuples) for the fc layer
 		self.regLossParam = 1e-3 # Regularization strength
-
-			# Added
-			self.fc_weights = []
-			#self.fc_bias = []
-			self.fc_output = []
+		self.fc_weights = []
+		self.fc_output = []
 
 	def addInput(self, inpImage):  # Assign the input image
 		inpImage = np.array(inpImage)
@@ -258,3 +255,59 @@ class ConvNet():
 		self.fc_weights -= learning_rate * d_L_d_w
 
 		return d_L_d_inputs_final
+	
+	def backPropagation(self, trueResults):
+		"""
+		Updates weights by carrying out backpropagation.
+		trueResults = the expected output from the neural network.
+		"""
+		predResults = self.getLayerOutput(len(self.weights)) # The output from the neural network
+
+		# Parameters
+		h = 0.001 * np.ones(predResults.shape) # For numerical calculation of the derivative
+		learningRate = 1e-5
+
+		# The derivative of the loss function with respect to the output:
+		doutput = (self.dataLoss(predResults + h, trueResults) - self.dataLoss(predResults - h, trueResults))/(2*h)
+
+		nPrev = len(self.weights) # Index keeping track of the previous layer
+
+		# Loop over the layers
+		while nPrev - 1 >= 0:
+
+			# If the current layer is not the output layer:
+			if nPrev != len(self.weights):
+				# Backprop into hidden layer
+				dhidden = np.dot(doutput, W.T)
+				# Backprop the ReLU non-linearity
+				dhidden[prevLayer <= 0] = 0
+			else:
+				dhidden = doutput
+
+			nPrev += -1
+			prevLayer = self.getLayerOutput(nPrev) # The output of the previous layer
+
+			# Find the gradients of the weights and biases
+			(W, b) = self.weights[nPrev]
+			dW = np.dot(prevLayer.T, dhidden)
+			db = np.sum(dhidden, axis=0, keepdims=True)
+
+			dW += self.regLossParam * W # Regularization gradient
+
+			# Update the weights and biases
+			W += -learningRate * dW
+			b += -learningRate * db
+			self.weights[nPrev] = (W, b)
+
+			doutput = dhidden # Move to the previous layer
+			
+	
+	def train(self, Y, epochs):
+		"""
+		Train the neural network.
+		Y = the expected results from the neural network.
+		epochs = the number of times the neural network should 'learn'.
+		"""
+		# Run backPropagation() 'epochs' number of times.
+		for i in range(epochs):
+			self.backPropagation(Y)
