@@ -5,7 +5,7 @@ import math
 np.random.seed(0)
 
 class ConvNet():
-	
+
 	def __init__(self):
 		self.inputImg = None # The input data
 		self.strides = [] # The stride length of each layer for convolution
@@ -14,10 +14,13 @@ class ConvNet():
 		self.widths = []
 		self.depths = []
 		self.weights = [] # The weights for convolution filters
-		self.nodes = [] # The number of nodes in each layer of the FC
-		self.fcweights = [] # The weights and biases (as tuples) for the fc layer
+		self.node = 10 # The number of nodes in the output layer
+		self.track = [] # Keeps track of layer order, i.e Conv./Pooling/FC
 		self.regLossParam = 1e-3 # Regularization strength
-		
+		self.learning_rate = 0.1
+		self.fc_weights = []
+		self.fc_output = []
+
 	def addInput(self, inpImage):  # Assign the input image
 		inpImage = np.array(inpImage)
 		self.inputImg = inpImage
@@ -33,7 +36,7 @@ class ConvNet():
 		self.lengths.append(numcols)
 		self.widths.append(numrows)
 		self.depths.append(num3)
-		
+
 	def cvolume(self, s, r, f):
 		"""
 		Creates a new Conv. volume.
@@ -51,14 +54,14 @@ class ConvNet():
 		#b = np.zeros((1, stre))
 		for i in range(f):
 			W.append(np.random.randn(prevd, r, r))
-		
+
 		W = np.array(W)
 
 		# The dimensions of the layer after convolution with the above weight array
 		numrows = (prevw - r)/s + 1
 		numcols = (prevl - r)/s +1
 		num3 = f
-		
+
 		# Store them
 		self.weights.append(W)
 		self.strides.append(s)
@@ -66,6 +69,7 @@ class ConvNet():
 		self.lengths.append(numcols)
 		self.widths.append(numrows)
 		self.depths.append(num3)
+		self.track.append('c')
 
 	def pmaxvolume(self, r):
 		"""
@@ -82,11 +86,40 @@ class ConvNet():
 		self.weights.append(None)
 		self.strides.append(r)
 		self.recfield.append(r)
-
-		#The dimensions of the layer after pooling
 		self.lengths.append(prevl/r)
 		self.widths.append(prevw/r)
 		self.depths.append(prevd)
+		self.track.append('p')
+
+	def FCLayer(self, n_nodes):
+		"""
+		Creates a fully connected layer
+		n - the no.of nodes in the output layer.
+		input_fc - the input to the fully connected layer.
+		"""
+		# Depth, width and length of previous layer
+		prevd = int(self.depths[-1])
+		prevw = int(self.widths[-1])
+		prevl = int(self.lengths[-1])
+
+		# flatten the input
+		input_fc = np.zeros((prevd, prevw, prevl))
+		input_fc = input_fc.flatten()
+		len_input_fc = len(input_fc)
+
+		# Initialise the weights and biases for the FC layer
+		self.fc_weights = np.random.randn(len_input_fc, n_nodes)
+		#self.fc_bias = np.zeros(n_nodes)
+
+		# Store them
+		self.weights.append(self.fc_weights)
+		self.strides.append(0)
+		self.recfield.append(0)
+		self.lengths.append(1)
+		self.widths.append(len_input_fc)
+		self.depths.append(1)
+		self.track.append('f')
+		self.node = n_nodes
 
 	def activFunc(self, inputArray):
 		"""
@@ -95,10 +128,17 @@ class ConvNet():
 		# ReLU activation
 		return np.maximum(0, inputArray)
 
-
-	def hiddenVolumeOutput(self, prevOut, W, s, r, d, w, l):
+	def dataLoss(self, predResults, trueResults):
 		"""
-		Returns the output of the Convolutional/Pooling Layer.
+		Returns the data loss.
+		"""
+		# L2 loss
+		loss = np.square(trueResults - predResults)
+		return loss/len(trueResults)
+
+	def ConvOutput(self, prevOut, W, s, r, d, w, l):
+		"""
+		Returns the output of the Convolutional Layer.
 		prevOut - Output from the previous layer
 		W = Weight of this layer
 		"""
@@ -107,99 +147,205 @@ class ConvNet():
 		w = int(w)
 		l = int(l)
 		volOutput = np.zeros((d, l, w))
-
-		if(W is None):
-			for j in range(d):   #Run over entire depth of prevOut volume
-				for k in range(w):  #Convolve around width
-					for m in range(l):   #Convolve around length
-						volOutput[j][m][k] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
-						
-			volOutput = np.array(volOutput)
-			return volOutput
-
+		if(len(W.shape)<4):
+			f = 1
 		else:
-			if(len(W.shape)<4):
-				f = 1
-			else:
-				f = W.shape[0]
-			
-			for i in range(f):   #Run loop to create f-filters
-				for k in range(w):  #Convolve around width
-					for m in range(l):   #Convolve around length
-						#for j in range(d):   #Run over entire depth of prevOut volume
-						volOutput[i][m][k] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
-						
-			volOutput = np.array(volOutput)
-			return self.activFunc(volOutput)
+			f = W.shape[0]
 		
-	def finalVolumeOutput(self, prevOut, W, s, r, d, w, l):
+		for i in range(f):   #Run loop to create f-filters
+			for k in range(w):  #Convolve around width
+				for m in range(l):   #Convolve around length
+					#for j in range(d):   #Run over entire depth of prevOut volume
+					volOutput[i][m][k] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
+
+		volOutput = np.array(volOutput)
+		return volOutput
+
+	def PoolOutput(self, prevOut, W, s, r, d, w, l):
 		"""
-		Returns the output of the final layer.
-		Similar to hiddenLayerOutput(), but without the activation function.
+		Returns the output of the Pooling Layer.
+		prevOut - Output from the previous layer
+		W = Weight of this layer, since there is no Weight matrix for MaxPooling, it is None
 		"""
 		prevOut = np.array(prevOut)
 		d = int(d)
 		w = int(w)
 		l = int(l)
-		finalVolOutput = np.zeros((d, l, w))  #d,w,l
-		print(d,w,l)
-		if(W is None):
-			for j in range(d):   #Run over entire depth of prevOut volume
-				for k in range(w):  #Convolve around width
-					for m in range(l):   #Convolve around length
-						finalVolOutput[j][m][k] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
-						
-			finalVolOutput = np.array(finalVolOutput)
-			return finalVolOutput
-			
-		else:
-			if(len(W.shape)<4):
-				f = 1
-			else:
-				f = W.shape[0]
-			
-			for i in range(f):   #Run loop to create f-filters
-				for k in range(w):  #Convolve around width
-					for m in range(l):   #Convolve around length
-						#for j in range(d):   #Run over entire depth of prevOut volume
-						finalVolOutput[i][m][k] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
-					
-			finalVolOutput = np.array(finalVolOutput)
-			return finalVolOutput
+		volOutput = np.zeros((d, l, w))
+		for j in range(d):
+			for k in range(w):
+				for m in range(l):
+					volOutput[j][m][k] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
 
+		volOutput = np.array(volOutput)
+		return volOutput
+
+	def FCOutput(self, prevOut, W, s, r, d, w, l):
+		"""
+		Creates a fully connected layer; implements forward pass and
+		backpropagation.
+		n_nodes - the no.of nodes in the fully connected layer.
+		input_fc - the input to the fully connected layer.
+		"""
+		# flatten the input
+		prevOut = prevOut.flatten()
+		#len_input_fc = len(prevOut)
+
+		totals = np.dot(prevOut, W) #+ self.fc_bias
+
+		# Output from the FC layer
+		self.output_fc = self.activFunc(totals)
+		return self.output_fc
 
 	def getVolumeOutput(self, n):
 		"""
 		Returns the output of the nth volume of the ConvNet.
 		"""
 		penLayer = len(self.weights) - 1 # The penultimate volume
-		
+		print(penLayer)
+
 		# h stores the output of the current layer
 		h = np.array(self.inputImg)
 
 		# Loop through the hidden layers
 		for i in range(min(n, penLayer)):
-			W = self.weights[i]   
+			W = self.weights[i]
 			s = self.strides[i]
 			r = self.recfield[i]
-			d = self.depths[i]
-			w = self.widths[i]
-			l = self.lengths[i]
-			h = self.hiddenVolumeOutput(h, W, s, r, d, w, l) 
+			d = self.depths[i+1]
+			w = self.widths[i+1]
+			l = self.lengths[i+1]
+			if (self.track[i] == 'c'):
+				h = self.activFunc(self.ConvOutput(h, W, s, r, d, w, l))
+			elif (self.track[i] == 'p'):
+				h = self.PoolOutput(h, W, s, r, d, w, l)
+			else:
+				h = self.FCOutput(h, W, s, r, d, w, l)
 
 		# Return the output
 		if n <= penLayer:
 			return h
 		else:
 			W = self.weights[n-1]
+			print(W)
 			s = self.strides[n-1]
 			r = self.recfield[n-1]
 			d = self.depths[n]
 			w = self.widths[n]
 			l = self.lengths[n]
-			return self.finalVolumeOutput(h, W, s, r, d, w, l) #==================
+			return self.FCOutput(h, W, s, r, d, w, l)
 
+	def FCGD(self, index, trueResults): #FC layer Gradient Descent
+		input_fc = self.getVolumeOutput(index - 1)
 
+		# store the shape of input to be used for backpropagation
+		input_fc_shape = input_fc.shape
 
-#===============================================================================================================================================
-#===============================================================================================================================================
+		# flatten the input
+		input_fc = input_fc.flatten()
+
+		W = self.weights[index - 1]
+		totals = np.dot(input_fc, W)
+
+		h = 0.001 * np.ones(self.output_fc.shape)
+		d_L_d_out = (self.dataLoss(self.output_fc + h, trueResults) - self.dataLoss(self.output_fc - h, trueResults))/(2*h)
+		d_out_d_t = np.where(totals <= 0, 0, 1)
+		d_t_d_w = input_fc
+		d_t_d_inputs = W
+		d_L_d_t = d_L_d_out * d_out_d_t
+
+		# Gradients of loss wrt Weights of FC layer and Input of FC layers
+		# d_L_d_t.shape = (n_nodes,1)
+		# Adding appropriate axes to d_L_d_t and d_t_d_w(same as input_fc) for . product
+		d_L_d_w = np.dot(d_t_d_w[np.newaxis].T, d_L_d_t[np.newaxis])
+
+		# d_L_d_inputs should have the dimensions of input_fc
+		d_L_d_inputs = np.dot(d_t_d_inputs, d_L_d_t)
+
+		# The dimension of d_L_d_inputs is (len_input_fc,), so, changing the shape so it can be given to maxpool's backprop.
+		d_L_d_inputs_final = d_L_d_inputs.reshape(input_fc_shape)
+
+		W -= self.learning_rate * d_L_d_w
+		self.weights[index] = W
+
+		return d_L_d_inputs_final
+
+	def PoolGD(self, d_L_d_O, index):
+		input_vol = self.getVolumeOutput(index - 1)
+		s = self.strides[index - 1]
+		r = self.recfield[index - 1]
+		d = d_L_d_O.shape[0]
+		w = d_L_d_O.shape[1]
+		l = d_L_d_O.shape[2]
+
+		d = int(d)
+		w = int(w)
+		l = int(l)
+
+		d_ind = []
+		spatial_ind = []
+		d_L_d_I = np.zeros((d, l, w))
+		replace = d_L_d_O.flatten()
+		for j in range(d):
+			for k in range(w):
+				for m in range(l):
+					spatial_ind.append(np.where(input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r] == input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r].max()))
+					d_ind.append(j)
+		
+		for i in range(len(replace)):
+			w = spatial_ind[i][0][0]
+			l = spatial_ind[i][1][0]
+			dep = d_ind[i]
+			d_L_d_I[dep][w][l] = replace[i]
+
+					#volOutput[j][m][k] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
+
+	
+	def backPropagation(self, trueResults):
+		"""
+		Updates weights by carrying out backpropagation.
+		trueResults = the expected output from the neural network.
+		
+		predResults = self.getVolumeOutput(len(self.weights)) # The output from the neural network
+
+		nPrev = len(self.weights) # Index keeping track of the previous layer
+
+		# Loop over the layers
+		while nPrev - 1 >= 0:
+
+			# If the current layer is not the output layer:
+			if nPrev != len(self.weights):
+				# Backprop into hidden layer
+				dhidden = np.dot(doutput, W.T)
+				# Backprop the ReLU non-linearity
+				dhidden[prevLayer <= 0] = 0
+			else:
+				dhidden = doutput
+
+			nPrev += -1
+			prevLayer = self.getLayerOutput(nPrev) # The output of the previous layer
+
+			# Find the gradients of the weights and biases
+			(W, b) = self.weights[nPrev]
+			dW = np.dot(prevLayer.T, dhidden)
+			db = np.sum(dhidden, axis=0, keepdims=True)
+
+			dW += self.regLossParam * W # Regularization gradient
+
+			# Update the weights and biases
+			W += -self.learningRate * dW
+			b += -self.learningRate * db
+			self.weights[nPrev] = (W, b)
+
+			doutput = dhidden # Move to the previous layer"""
+			
+	
+	def train(self, Y, epochs):
+		"""
+		Train the neural network.
+		Y = the expected results from the neural network.
+		epochs = the number of times the neural network should 'learn'.
+		"""
+		# Run backPropagation() 'epochs' number of times.
+		for i in range(epochs):
+			self.backPropagation(Y)

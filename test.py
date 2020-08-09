@@ -7,4 +7,5 @@ x = np.random.randn(3,3,3)
 model.addInput(x) # Input layer
 model.cvolume(1,2,2) # Add Convolutional volume
 model.pmaxvolume(2) # Add Pooling layer
-print(model.getVolumeOutput(2))  # Get final output layer
+model.FCLayer(3)
+print(model.getVolumeOutput(3))  # Get final output layer
