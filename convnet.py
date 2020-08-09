@@ -146,7 +146,7 @@ class ConvNet():
 		d = int(d)
 		w = int(w)
 		l = int(l)
-		volOutput = np.zeros((d, l, w))
+		volOutput = np.zeros((d, w, l))
 		if(len(W.shape)<4):
 			f = 1
 		else:
@@ -156,7 +156,7 @@ class ConvNet():
 			for k in range(w):  #Convolve around width
 				for m in range(l):   #Convolve around length
 					#for j in range(d):   #Run over entire depth of prevOut volume
-					volOutput[i][m][k] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
+					volOutput[i][k][m] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
 
 		volOutput = np.array(volOutput)
 		return volOutput
@@ -171,11 +171,11 @@ class ConvNet():
 		d = int(d)
 		w = int(w)
 		l = int(l)
-		volOutput = np.zeros((d, l, w))
+		volOutput = np.zeros((d, w, l))
 		for j in range(d):
 			for k in range(w):
 				for m in range(l):
-					volOutput[j][m][k] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
+					volOutput[j][k][m] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
 
 		volOutput = np.array(volOutput)
 		return volOutput
@@ -297,8 +297,6 @@ class ConvNet():
 			l = spatial_ind[i][1][0]
 			dep = d_ind[i]
 			d_L_d_I[dep][w][l] = replace[i]
-
-					#volOutput[j][m][k] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
 
 	
 	def backPropagation(self, trueResults):
