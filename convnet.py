@@ -267,7 +267,6 @@ class ConvNet():
 
 		W -= self.learning_rate * d_L_d_w
 		self.weights[index] = W
-
 		return d_L_d_inputs_final
 
 	def PoolGD(self, d_L_d_O, index):
@@ -297,45 +296,31 @@ class ConvNet():
 			l = spatial_ind[i][1][0]
 			dep = d_ind[i]
 			d_L_d_I[dep][w][l] = replace[i]
+		
+		return d_L_d_I
 
+	def ConvGD(self, d_L_d_O, index):
+		return 1
 	
 	def backPropagation(self, trueResults):
 		"""
 		Updates weights by carrying out backpropagation.
 		trueResults = the expected output from the neural network.
-		
-		predResults = self.getVolumeOutput(len(self.weights)) # The output from the neural network
+		"""
 
 		nPrev = len(self.weights) # Index keeping track of the previous layer
+		doutput = self.FCGD(nPrev, trueResults)
+		nPrev += -1
 
 		# Loop over the layers
 		while nPrev - 1 >= 0:
-
-			# If the current layer is not the output layer:
-			if nPrev != len(self.weights):
-				# Backprop into hidden layer
-				dhidden = np.dot(doutput, W.T)
-				# Backprop the ReLU non-linearity
-				dhidden[prevLayer <= 0] = 0
+			if(self.track[nPrev] == 'p'):
+				dhidden = self.PoolGD(doutput, nPrev)
 			else:
-				dhidden = doutput
-
-			nPrev += -1
-			prevLayer = self.getLayerOutput(nPrev) # The output of the previous layer
-
-			# Find the gradients of the weights and biases
-			(W, b) = self.weights[nPrev]
-			dW = np.dot(prevLayer.T, dhidden)
-			db = np.sum(dhidden, axis=0, keepdims=True)
-
-			dW += self.regLossParam * W # Regularization gradient
-
-			# Update the weights and biases
-			W += -self.learningRate * dW
-			b += -self.learningRate * db
-			self.weights[nPrev] = (W, b)
+				dhidden = self.ConvGD(doutput, nPrev)
 
 			doutput = dhidden # Move to the previous layer"""
+			nPrev += -1
 			
 	
 	def train(self, Y, epochs):
