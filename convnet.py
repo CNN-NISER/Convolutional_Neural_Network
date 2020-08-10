@@ -269,60 +269,6 @@ class ConvNet():
 		self.weights[index] = W
 		return d_L_d_inputs_final
 
-	def iterate_regions(self, image, field):
-	    '''
-	    Generates all possible field X field image regions.
-	    image is a 2d numpy array
-	    '''
-	    w, h = image.shape
-
-	    for i in range(w - field + 1):
-	      for j in range(h - field + 1):
-	        region = image[i:(i + field), j:(j + field)]
-	        yield region, i, j
-
-	def ConvBackprop(self, dZ, index):
-    
-	    """
-	    Backpropagates through the Convolutional Layer
-	    dZ is the gradient of the loss wrt output of the conv layer.
-	    
-	    It calculates dW (the gradient wrt the filters) and updates
-	    the weights.
-	    """
-	    # Setting some parameters
-	    learn_rate = 0.1
-	    
-	    # Get the weight
-	    W = self.weights[index]
-	    # Get the input
-	    input_x = self.getVolumeOutput(index-1)
-	    
-	    # Get the shape
-	    n_filters, depth_W, width_W, len_W = W.shape
-	    depth_x, width_x, len_x = input_x.shape
-	    depth_dZ, width_dZ, len_dZ = dZ.shape
-	    
-	    # Initialise dX and dW
-	    dX = np.zeros((depth_x, width_x, len_x))                           
-	    dW = np.zeros((n_filters, depth_W, width_W, len_W))
-	    
-	    field = width_dZ # to be used in self.iterate_regions
-	    
-	    # Convoluting the input, input_x with dZ
-	    for f1 in range(depth_dZ): 
-	        for f2 in range(depth_x):
-	            for region, i, j in self.iterate_regions(input_x[f2], field):
-	                dW[f1][f2][i,j] = np.sum(region * dZ[f1])
-	   
-	    
-	    # Update the weights
-	    W -= learn_rate * dW
-	    self.weights[index] = W
-	    
-	    return None
-    
-
 	def PoolGD(self, d_L_d_O, index):
 		input_vol = self.getVolumeOutput(index - 1)
 		s = self.strides[index - 1]
@@ -353,31 +299,75 @@ class ConvNet():
 		
 		return d_L_d_I
 
-	def ConvGD(self, d_L_d_O, index):
-		return 1
+	def iterate_regions(self, image, field):
+	    """
+	    Generates all possible field X field image regions.
+	    image is a 2d numpy array
+		"""
+	    w, h = image.shape
+
+	    for i in range(w - field + 1):
+	      for j in range(h - field + 1):
+	        region = image[i:(i + field), j:(j + field)]
+	        yield region, i, j
+
+	def ConvGD(self, dZ, index):
+	    """
+	    Backpropagates through the Convolutional Layer, calculates dW (the gradient wrt the filters) and updates the weights.
+	    dZ = the gradient of the loss wrt output of the conv layer.
+	    """	    
+	    # Get the weight
+	    W = self.weights[index - 1]
+	    # Get the input
+	    input_x = self.getVolumeOutput(index-1)
+	    
+	    # Get the shape
+	    n_filters, depth_W, width_W, len_W = W.shape
+	    depth_x, width_x, len_x = input_x.shape
+	    depth_dZ, width_dZ, len_dZ = dZ.shape
+	    
+	    # Initialise dX and dW
+	    dX = np.zeros((depth_x, width_x, len_x))                           
+	    dW = np.zeros((n_filters, depth_W, width_W, len_W))
+	    
+	    field = width_dZ # to be used in self.iterate_regions
+	    
+	    # Convoluting the input, input_x with dZ
+	    for f1 in range(depth_dZ): 
+	        for f2 in range(depth_x):
+	            for region, i, j in self.iterate_regions(input_x[f2], field):
+	                dW[f1][f2][i,j] = np.sum(region * dZ[f1])
+	   
+	    
+	    # Update the weights
+	    W -= self.learning_rate * dW
+	    self.weights[index] = W
+	    
+	    return None
 	
-	def backPropagation(self, trueResults):
+	def backPropagation(self, input, trueResults):
 		"""
 		Updates weights by carrying out backpropagation.
 		trueResults = the expected output from the neural network.
 		"""
-
-		nPrev = len(self.weights) # Index keeping track of the previous layer
-		doutput = self.FCGD(nPrev, trueResults)
-		nPrev += -1
-
-		# Loop over the layers
-		while nPrev - 1 >= 0:
-			if(self.track[nPrev] == 'p'):
-				dhidden = self.PoolGD(doutput, nPrev)
-			else:
-				dhidden = self.ConvGD(doutput, nPrev)
-
-			doutput = dhidden # Move to the previous layer"""
+		for i in range(len(input)):
+			self.inputImg = input[i]
+			out = self.getVolumeOutput(len(self.weights))
+			nPrev = len(self.weights) # Index keeping track of the previous layer
+			doutput = self.FCGD(nPrev, trueResults[i])
 			nPrev += -1
 			
+			# Loop over the layers
+			while nPrev - 1 >= 0:
+				if(self.track[nPrev - 1] == 'p'):
+					dhidden = self.PoolGD(doutput, nPrev)
+				else:
+					self.ConvGD(doutput, nPrev)
+				doutput = dhidden # Move to the previous layer
+				nPrev += -1
+			
 	
-	def train(self, Y, epochs):
+	def train(self, input, Y, epochs):
 		"""
 		Train the neural network.
 		Y = the expected results from the neural network.
@@ -385,4 +375,5 @@ class ConvNet():
 		"""
 		# Run backPropagation() 'epochs' number of times.
 		for i in range(epochs):
-			self.backPropagation(Y)
+			self.backPropagation(input, Y)
+		print("Training Complete.")
