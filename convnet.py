@@ -156,7 +156,7 @@ class ConvNet():
 			for k in range(w):  #Convolve around width
 				for m in range(l):   #Convolve around length
 					#for j in range(d):   #Run over entire depth of prevOut volume
-					volOutput[i][k][m] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + s + 1, m*s: m*s + s + 1])[:,:,:])
+					volOutput[i][k][m] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + r, m*s: m*s + r])[:,:,:])
 
 		volOutput = np.array(volOutput)
 		return volOutput
@@ -202,7 +202,6 @@ class ConvNet():
 		Returns the output of the nth volume of the ConvNet.
 		"""
 		penLayer = len(self.weights) - 1 # The penultimate volume
-		print(penLayer)
 
 		# h stores the output of the current layer
 		h = np.array(self.inputImg)
@@ -227,7 +226,6 @@ class ConvNet():
 			return h
 		else:
 			W = self.weights[n-1]
-			print(W)
 			s = self.strides[n-1]
 			r = self.recfield[n-1]
 			d = self.depths[n]
@@ -266,7 +264,7 @@ class ConvNet():
 		d_L_d_inputs_final = d_L_d_inputs.reshape(input_fc_shape)
 
 		W -= self.learning_rate * d_L_d_w
-		self.weights[index] = W
+		self.weights[index - 1] = W
 		return d_L_d_inputs_final
 
 	def PoolGD(self, d_L_d_O, index):
@@ -283,7 +281,7 @@ class ConvNet():
 
 		d_ind = []
 		spatial_ind = []
-		d_L_d_I = np.zeros((d, l, w))
+		d_L_d_I = np.zeros((int(self.depths[index - 1]), int(self.lengths[index - 1]), int(self.widths[index - 1])))
 		replace = d_L_d_O.flatten()
 		for j in range(d):
 			for k in range(w):
@@ -298,64 +296,117 @@ class ConvNet():
 			d_L_d_I[dep][w][l] = replace[i]
 		
 		return d_L_d_I
-
-	def iterate_regions(self, image, field):
-	    """
-	    Generates all possible field X field image regions.
-	    image is a 2d numpy array
-		"""
-	    w, h = image.shape
-
-	    for i in range(w - field + 1):
-	      for j in range(h - field + 1):
-	        region = image[i:(i + field), j:(j + field)]
-	        yield region, i, j
-
-	def ConvGD(self, dZ, index):
-	    """
-	    Backpropagates through the Convolutional Layer, calculates dW (the gradient wrt the filters) and updates the weights.
-	    dZ = the gradient of the loss wrt output of the conv layer.
-	    """	    
-	    # Get the weight
-	    W = self.weights[index - 1]
-	    # Get the input
-	    input_x = self.getVolumeOutput(index-1)
-	    
-	    # Get the shape
-	    n_filters, depth_W, width_W, len_W = W.shape
-	    depth_x, width_x, len_x = input_x.shape
-	    depth_dZ, width_dZ, len_dZ = dZ.shape
-	    
-	    # Initialise dX and dW
-	    dX = np.zeros((depth_x, width_x, len_x))                           
-	    dW = np.zeros((n_filters, depth_W, width_W, len_W))
-	    
-	    field = width_dZ # to be used in self.iterate_regions
-	    
-	    # Convoluting the input, input_x with dZ
-	    for f1 in range(depth_dZ): 
-	        for f2 in range(depth_x):
-	            for region, i, j in self.iterate_regions(input_x[f2], field):
-	                dW[f1][f2][i,j] = np.sum(region * dZ[f1])
-	   
-	    
-	    # Update the weights
-	    W -= self.learning_rate * dW
-	    self.weights[index] = W
-	    
-	    return None
 	
+	# Helper functions for convBackProp()
+	def convolve(self, inputLayer, convFilter):
+		"""
+		Returns the convoluted output convFilter on inputLayer.
+		Both are two dimensional matrices square matrices.
+		inputLayer - (n, n)
+		convFilter - (f, f)
+		"""
+		# Dimensions of the input matrices
+		n = inputLayer.shape[0]
+		f = convFilter.shape[0]
+		
+		# Defining the shape of the output matrix
+		l = (n-f) + 1
+		output_matrix = np.zeros([l, l])
+		s = 1
+
+		for k in range(l):  #Convolve around width
+			for m in range(l):   #Convolve around length
+				#for j in range(d):   #Run over entire depth of prevOut volume
+				output_matrix[k][m] = np.sum(np.multiply(inputLayer[k*s: k*s + f, m*s: m*s + f], convFilter)[:,:])
+		"""
+		# Convolving
+		for row in range(l):
+			for col in range(l):
+				output_matrix[row][col] = np.sum(np.multiply(inputLayer[row:row+f,col:col+f], convFilter))"""
+		
+		return output_matrix
+		
+	def fullConvolve(self, inputLayer, convFilter):
+		"""
+		Returns the full convoluted output of convFilter on inputLayer.
+		"""
+		
+		# Dimensions of the input matrices
+		n = inputLayer.shape[0]
+		f = convFilter.shape[0]
+		
+		# Creating padding for the inputLayer matrix
+		padding = f - 1
+		new_dim = n + 2*padding
+		
+		padded_input = np.zeros([new_dim, new_dim])
+		padded_input[padding:new_dim - padding, padding:new_dim - padding] = inputLayer
+		
+		# Now convolve padded_input with convFilter
+		output_matrix = self.convolve(padded_input, convFilter)
+		
+		return output_matrix
+	
+	def rotate180(self, matrix):
+		"""
+		Rotates matrix by 180 degrees in the plane.
+		Takes only two dimensional matrices.
+		"""
+		return np.rot90(matrix, 2)
+		
+	def ConvGD(self, dLdoutput, index):
+		"""
+		Function that backpropagates through a convolutional layer.
+		index = index of the current layer
+		dLdoutput = Gradient of the loss function wrt the output of the current layer (channel, row, col)
+		Returns dLdinput.
+		"""
+		X = self.getVolumeOutput(index-1) # Input to the current layer (channel, row, col)
+		W = self.weights[index - 1] # Weights of the current layer (numFilter, channel, row, col)
+
+		
+		dLdX = np.empty(X.shape)
+		dLdW = np.empty(W.shape)
+  
+		dLdout = np.copy(dLdoutput)
+		dLdout[dLdout < 0] = 0
+		
+		# Loop over the filters
+		numFilters = W.shape[0]
+		
+		for fil_ter in range(numFilters):
+			filter_output = dLdout[fil_ter]
+			
+			# Loop over the channels
+			for channel in range(W.shape[1]):
+				filter_layer = W[fil_ter][channel]
+				dWLayer = self.convolve(X[channel], filter_output)
+				dXLayer = self.rotate180(self.fullConvolve(self.rotate180(filter_layer), filter_output))
+				
+				# Combine these and return in arrays
+				dLdW[fil_ter][channel] = dWLayer
+				dLdX[channel] = dXLayer
+		
+		W -= self.learning_rate * dLdW
+		self.weights[index - 1] = W				
+		return dLdX
+
+
 	def backPropagation(self, input, trueResults):
 		"""
 		Updates weights by carrying out backpropagation.
 		trueResults = the expected output from the neural network.
 		"""
 		for i in range(len(input)):
-			self.inputImg = input[i]
+			self.inputImg = np.array(input[i])
+			if(len(self.inputImg.shape)<3):
+				a = self.inputImg
+				self.inputImg = a.reshape(1, a.shape[0], a.shape[1])
+			# Called once so that all weights are initialised, just in case if not done before
 			out = self.getVolumeOutput(len(self.weights))
 			nPrev = len(self.weights) # Index keeping track of the previous layer
 			doutput = self.FCGD(nPrev, trueResults[i])
-			nPrev += -1
+			nPrev -= 1
 			
 			# Loop over the layers
 			while nPrev - 1 >= 0:
@@ -364,8 +415,7 @@ class ConvNet():
 				else:
 					self.ConvGD(doutput, nPrev)
 				doutput = dhidden # Move to the previous layer
-				nPrev += -1
-			
+				nPrev -= 1  			
 	
 	def train(self, input, Y, epochs):
 		"""
@@ -376,4 +426,22 @@ class ConvNet():
 		# Run backPropagation() 'epochs' number of times.
 		for i in range(epochs):
 			self.backPropagation(input, Y)
+			print('Epoch Number: ',i + 1,' done.')
 		print("Training Complete.")
+
+	def accuracy(self, X, Y):
+		y = []
+		for i in range(len(X)):
+			self.inputImg = np.array(X[i])
+			if(len(self.inputImg.shape)<3):
+				a = self.inputImg
+				self.inputImg = a.reshape(1, a.shape[0], a.shape[1])
+				y.append(self.getVolumeOutput(len(self.weights)))
+		Y = np.array(Y)
+		y = np.array(y)
+		if(np.max(y)==0):
+			y /= 1.0
+		else:
+			y /= np.max(y)
+		loss = np.sqrt(np.multiply(y-Y, y-Y))
+		print('Accuracy = ',(1 - np.mean(loss))*100)
