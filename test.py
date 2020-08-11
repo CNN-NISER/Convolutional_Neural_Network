@@ -3,6 +3,7 @@ from convnet import ConvNet
 from tensorflow.keras import datasets, layers, models
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
+# For skeptics, we use tensorflow only for importing the MNIST data easily. The Conv Net architecture and calculations are done with only NumPy
 
 (x, y), (x2, y2) = datasets.mnist.load_data()
 # Normalise data
