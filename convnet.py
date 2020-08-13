@@ -155,11 +155,16 @@ class ConvNet():
 
     def dataLoss(self, predResults, trueResults):
         """
-        Returns the data loss.
+        Returns the data loss. Cross-Entropy loss function (Softmax Classifier).
         """
         # L2 loss
-        loss = np.square(trueResults - predResults)
-        return loss/len(trueResults)
+        loss = 0
+        sum = 0
+        for i in range(len(predResults)):
+            sum += math.exp(predResults[i])
+        correct = np.argmax(trueResults)
+        loss = (-1)*(math.log((math.exp(predResults[correct]))/sum))
+        return loss
 
     def ConvOutput(self, prevOut, W, s, r, d, w, l):
         """
@@ -469,7 +474,12 @@ class ConvNet():
         print("Training Complete.")
 
     def accuracy(self, X, Y):
+        """
+        Function that takes in test data and results and calculates the accuracy of the Network.
+        """
         y = []
+        cor = 0
+        correct = 0
         for i in range(len(X)):
             self.inputImg = np.array(X[i])
             if(len(self.inputImg.shape)<3):
@@ -478,9 +488,13 @@ class ConvNet():
                 y.append(self.getVolumeOutput(len(self.weights)))
         Y = np.array(Y)
         y = np.array(y)
-        if(np.max(y)==0):
+        if (np.max(y)==0):
             y /= 1.0
         else:
             y /= np.max(y)
-        loss = np.sqrt(np.multiply(y-Y, y-Y))
-        print('Accuracy = ',(1 - np.mean(loss))*100)
+        for i in range(len(Y)):
+            correct = np.argmax(Y[i])
+            if (np.argmax(y[i]) == correct):
+                cor += 1
+        cor /= len(Y)
+        print('Accuracy = ',cor*100)
