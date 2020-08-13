@@ -110,6 +110,9 @@ class ConvNet():
         self.depths.append(prevd)
         self.track.append('p')
 
+        self.adam_m.append(None)
+        self.adam_v.append(None)
+
     def FCLayer(self, n_nodes):
         """
         Creates a fully connected layer
@@ -139,6 +142,9 @@ class ConvNet():
         self.depths.append(1)
         self.track.append('f')
         self.node = n_nodes
+
+        self.adam_m.append(None)
+        self.adam_v.append(None)
 
     def activFunc(self, inputArray):
         """
