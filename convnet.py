@@ -66,8 +66,8 @@ class ConvNet():
         #b = np.zeros((1, stre))
         for i in range(f):
             W.append(np.random.randn(prevd, r, r))
-            M.append(np.zeros([prevd, r, r]))
-            V.append(np.zeros([prevd, r, r]))
+            M.append(np.zeros((prevd, r, r)))
+            V.append(np.zeros((prevd, r, r)))
 
         W = np.array(W)
         M = np.array(M)
@@ -341,7 +341,7 @@ class ConvNet():
 
         # Defining the shape of the output matrix
         l = (n-f) + 1
-        output_matrix = np.zeros([l, l])
+        output_matrix = np.zeros((l, l))
         s = 1
 
         # Convolving
@@ -364,7 +364,7 @@ class ConvNet():
         padding = f - 1
         new_dim = n + 2*padding
 
-        padded_input = np.zeros([new_dim, new_dim])
+        padded_input = np.zeros((new_dim, new_dim))
         padded_input[padding:new_dim - padding, padding:new_dim - padding] = inputLayer
 
         # Now convolve padded_input with convFilter
