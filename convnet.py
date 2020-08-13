@@ -17,7 +17,7 @@ class ConvNet():
         self.node = 10 # The number of nodes in the output layer
         self.track = [] # Keeps track of layer order, i.e Conv./Pooling/FC
         self.regLossParam = 1e-3 # Regularization strength
-        self.learning_rate = 0.1
+        self.learning_rate = 1e-5
         self.fc_weights = []
         self.fc_output = []
 
