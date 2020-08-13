@@ -452,7 +452,7 @@ class ConvNet():
                 else:
                     # i is taken as the iteration counter
                     # since the weights are modified for each i
-                    self.ConvGD(doutput, nPrev, i+1)
+                    dhidden = self.ConvGD(doutput, nPrev, i+1)
                 doutput = dhidden # Move to the previous layer
                 nPrev -= 1
 
