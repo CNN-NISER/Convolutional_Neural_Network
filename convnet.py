@@ -26,7 +26,7 @@ class ConvNet():
         self.adam_v = []
         self.beta1 = 0.9
         self.beta2 = 0.999
-        self.eps = 1e-8
+        self.eps = 1e-4
 
     def addInput(self, inpImage):  # Assign the input image
         inpImage = np.array(inpImage)
@@ -422,6 +422,9 @@ class ConvNet():
 
         W -= self.learning_rate * Mt / (np.sqrt(Vt) + self.eps)
         self.weights[index - 1] = W
+
+        self.adam_m[index - 1] = M
+        self.adam_v[index - 1] = V
 
         return dLdX
 
