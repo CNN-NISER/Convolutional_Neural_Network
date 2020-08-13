@@ -344,15 +344,10 @@ class ConvNet():
         output_matrix = np.zeros([l, l])
         s = 1
 
-        for k in range(l):  #Convolve around width
-            for m in range(l):   #Convolve around length
-                #for j in range(d):   #Run over entire depth of prevOut volume
-                output_matrix[k][m] = np.sum(np.multiply(inputLayer[k*s: k*s + f, m*s: m*s + f], convFilter)[:,:])
-        """
         # Convolving
         for row in range(l):
             for col in range(l):
-                output_matrix[row][col] = np.sum(np.multiply(inputLayer[row:row+f,col:col+f], convFilter))"""
+                output_matrix[row][col] = np.sum(np.multiply(inputLayer[row:row+f,col:col+f], convFilter))
 
         return output_matrix
 
