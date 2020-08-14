@@ -297,35 +297,51 @@ class ConvNet():
         self.weights[index - 1] = W
         return d_L_d_inputs_final
 
-    def PoolGD(self, d_L_d_O, index):
-        input_vol = self.getVolumeOutput(index - 1)
-        s = self.strides[index - 1]
-        r = self.recfield[index - 1]
-        d = d_L_d_O.shape[0]
-        w = d_L_d_O.shape[1]
-        l = d_L_d_O.shape[2]
+	def PoolGD(self, dLdOut, index):
+		"""
+		Function that backpropagates gradients through the MaxPooling layer
+		dLdOut is the differential of Loss wrt the Output where Output here refers to the output of the MaxPooling layer
+		This function thus finds dLdI which is the differential of Loss wrt the Input where Input here refers to input to MaxPool layer.
+		"""
+		input_vol = self.getVolumeOutput(index - 1)
+		s = self.strides[index - 1]
+		r = self.recfield[index - 1]
+		d = dLdOut.shape[0]
+		w = dLdOut.shape[1]
+		l = dLdOut.shape[2]
 
-        d = int(d)
-        w = int(w)
-        l = int(l)
+		#Convert the numbers to int, as the for loops below will report errors if this is not done 
+		d = int(d)
+		w = int(w)
+		l = int(l)
 
-        d_ind = []
-        spatial_ind = []
-        d_L_d_I = np.zeros((int(self.depths[index - 1]), int(self.lengths[index - 1]), int(self.widths[index - 1])))
-        replace = d_L_d_O.flatten()
-        for j in range(d):
-            for k in range(w):
-                for m in range(l):
-                    spatial_ind.append(np.where(input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r] == input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r].max()))
-                    d_ind.append(j)
+		#Keep track of the depth and spatial indices of where the maximum element is, in the sub arrays taken for pooling
+		d_ind = []
+		spatial_ind = []
+		#Keep track of which sub array is being taken for max pooling
+		track_w = []
+		track_l = []
 
-        for i in range(len(replace)):
-            w = spatial_ind[i][0][0]
-            l = spatial_ind[i][1][0]
-            dep = d_ind[i]
-            d_L_d_I[dep][w][l] = replace[i]
+		dLdI = np.zeros((int(self.depths[index - 1]), int(self.lengths[index - 1]), int(self.widths[index - 1])))
+		replace = dLdOut.flatten()
+		for j in range(d):
+			for k in range(w):
+				for m in range(l):
+					spatial_ind.append(np.where(input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r] == input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r].max()))
+					track_l.append(m)
+					track_w.append(k)
+					d_ind.append(j)
 
-        return d_L_d_I
+		#Initialise correct values in dLdI array
+		for i in range(len(replace)):
+			width = spatial_ind[i][0][0]    # Note the (width) spatial index of the maximum element of the sub array 
+			width += track_w[i]*r  # Add the (width) location depending on which sub array was taken for max pooling
+			length = spatial_ind[i][1][0]   # Note the (length) spatial index of the maximum element of the sub array 
+			length += track_l[i]*r  # Add the (length) location depending on which sub array was taken for max pooling
+			depth = d_ind[i]  # Note the depth index of the maximum element of the sub array 
+			dLdI[depth][width][length] = replace[i]
+
+		return dLdI
 
     # Helper functions for convBackProp()
     def convolve(self, inputLayer, convFilter):
