@@ -272,35 +272,51 @@ class ConvNet():
 		self.weights[index - 1] = W
 		return d_L_d_inputs_final
 
-	def PoolGD(self, d_L_d_O, index):
+	def PoolGD(self, dLdOut, index):
+		"""
+		Function that backpropagates gradients through the MaxPooling layer
+		dLdOut is the differential of Loss wrt the Output where Output here refers to the output of the MaxPooling layer
+		This function thus finds dLdI which is the differential of Loss wrt the Input where Input here refers to input to MaxPool layer.
+		"""
 		input_vol = self.getVolumeOutput(index - 1)
 		s = self.strides[index - 1]
 		r = self.recfield[index - 1]
-		d = d_L_d_O.shape[0]
-		w = d_L_d_O.shape[1]
-		l = d_L_d_O.shape[2]
+		d = dLdOut.shape[0]
+		w = dLdOut.shape[1]
+		l = dLdOut.shape[2]
 
+		#Convert the numbers to int, as the for loops below will report errors if this is not done 
 		d = int(d)
 		w = int(w)
 		l = int(l)
 
+		#Keep track of the depth and spatial indices of where the maximum element is, in the sub arrays taken for pooling
 		d_ind = []
 		spatial_ind = []
-		d_L_d_I = np.zeros((int(self.depths[index - 1]), int(self.lengths[index - 1]), int(self.widths[index - 1])))
-		replace = d_L_d_O.flatten()
+		#Keep track of which sub array is being taken for max pooling
+		track_w = []
+		track_l = []
+
+		dLdI = np.zeros((int(self.depths[index - 1]), int(self.lengths[index - 1]), int(self.widths[index - 1])))
+		replace = dLdOut.flatten()
 		for j in range(d):
 			for k in range(w):
 				for m in range(l):
 					spatial_ind.append(np.where(input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r] == input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r].max()))
+					track_l.append(m)
+					track_w.append(k)
 					d_ind.append(j)
-		
+
+		#Initialise correct values in dLdI array
 		for i in range(len(replace)):
-			w = spatial_ind[i][0][0]
-			l = spatial_ind[i][1][0]
-			dep = d_ind[i]
-			d_L_d_I[dep][w][l] = replace[i]
-		
-		return d_L_d_I
+			width = spatial_ind[i][0][0]    # Note the (width) spatial index of the maximum element of the sub array 
+			width += track_w[i]*r  # Add the (width) location depending on which sub array was taken for max pooling
+			length = spatial_ind[i][1][0]   # Note the (length) spatial index of the maximum element of the sub array 
+			length += track_l[i]*r  # Add the (length) location depending on which sub array was taken for max pooling
+			depth = d_ind[i]  # Note the depth index of the maximum element of the sub array 
+			dLdI[depth][width][length] = replace[i]
+
+		return dLdI
 	
 	# Helper functions for convBackProp()
 	def convolve(self, inputLayer, convFilter):
@@ -315,20 +331,15 @@ class ConvNet():
 		f = convFilter.shape[0]
 		
 		# Defining the shape of the output matrix
-		l = (n-f) + 1
-		output_matrix = np.zeros([l, l])
-		s = 1
+        l = (n-f) + 1
+        output_matrix = np.zeros((l, l))
+        s = 1
 
-		for k in range(l):  #Convolve around width
-			for m in range(l):   #Convolve around length
-				#for j in range(d):   #Run over entire depth of prevOut volume
-				output_matrix[k][m] = np.sum(np.multiply(inputLayer[k*s: k*s + f, m*s: m*s + f], convFilter)[:,:])
-		"""
-		# Convolving
-		for row in range(l):
-			for col in range(l):
-				output_matrix[row][col] = np.sum(np.multiply(inputLayer[row:row+f,col:col+f], convFilter))"""
-		
+        # Convolving
+        for row in range(l):
+            for col in range(l):
+                output_matrix[row][col] = np.sum(np.multiply(inputLayer[row:row+f,col:col+f], convFilter))
+
 		return output_matrix
 		
 	def fullConvolve(self, inputLayer, convFilter):
@@ -369,7 +380,6 @@ class ConvNet():
 		X = self.getVolumeOutput(index-1) # Input to the current layer (channel, row, col)
 		W = self.weights[index - 1] # Weights of the current layer (numFilter, channel, row, col)
 
-		
 		dLdX = np.empty(X.shape)
 		dLdW = np.empty(W.shape)
   
@@ -418,7 +428,7 @@ class ConvNet():
 				if(self.track[nPrev - 1] == 'p'):
 					dhidden = self.PoolGD(doutput, nPrev)
 				else:
-					self.ConvGD(doutput, nPrev)
+					dhidden = self.ConvGD(doutput, nPrev)
 				doutput = dhidden # Move to the previous layer
 				nPrev -= 1  			
 	
