@@ -456,10 +456,11 @@ class ConvNet():
 
         return dLdX
 
-    def backPropagation(self, input, trueResults):
+    def backPropagation(self, input, trueResults, totalCount):
         """
         Updates weights by carrying out backpropagation.
         trueResults = the expected output from the neural network.
+        totalCount = The number of times the weights have been updated so far.
         """
         for i in range(len(input)):
             self.inputImg = np.array(input[i])
@@ -473,14 +474,17 @@ class ConvNet():
             doutput = self.FCGD(nPrev, trueResults[i])
             nPrev -= 1
 
+            totalCount += 1
             # Loop over the layers
             while nPrev - 1 >= 0:
                 if(self.track[nPrev - 1] == 'p'):
                     dhidden = self.PoolGD(doutput, nPrev)
                 else:
-                    dhidden = self.ConvGD(doutput, nPrev, i+1)
+                    dhidden = self.ConvGD(doutput, nPrev, totalCount)
                 doutput = dhidden  # Move to the previous layer
                 nPrev -= 1
+
+        return totalCount
 
     def train(self, input, Y, epochs):
         """
@@ -489,8 +493,9 @@ class ConvNet():
         epochs = the number of times the neural network should 'learn'.
         """
         # Run backPropagation() 'epochs' number of times.
+        total_count = 0
         for i in range(epochs):
-            self.backPropagation(input, Y)
+            total_count = self.backPropagation(input, Y, total_count)
             print('Epoch Number: ', i + 1, ' done.')
         print("Training Complete.")
 
