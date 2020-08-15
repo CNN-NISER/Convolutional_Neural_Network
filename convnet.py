@@ -16,7 +16,6 @@ class ConvNet():
         self.weights = []  # The weights for convolution filters
         self.node = 10  # The number of nodes in the output layer
         self.track = []  # Keeps track of layer order, i.e Conv./Pooling/FC
-        self.regLossParam = 1e-3  # Regularization strength
         self.learning_rate = 0.005
         self.fc_weights = []
         self.output_fc = []
@@ -198,10 +197,9 @@ class ConvNet():
         totals = np.dot(prevOut, W)  # + self.fc_bias
         # Softmax
         exp_totals = np.exp(totals)
-        sum_exp_totals = np.sum(exp_totals, axis=0)
 
         # Output from the FC layer
-        self.output_fc = exp_totals / sum_exp_totals
+        self.output_fc = exp_totals / (np.sum(exp_totals, axis=0))
         
         return self.output_fc
 
@@ -325,16 +323,11 @@ class ConvNet():
 
         # Initialise correct values in dLdI array
         for i in range(len(replace)):
-            # Note the (width) spatial index of the maximum element of the sub array
-            width = spatial_ind[i][0][0]
-            # Add the (width) location depending on which sub array was taken for max pooling
-            width += track_w[i]*r
-            # Note the (length) spatial index of the maximum element of the sub array
-            length = spatial_ind[i][1][0]
-            # Add the (length) location depending on which sub array was taken for max pooling
-            length += track_l[i]*r
-            # Note the depth index of the maximum element of the sub array
-            depth = d_ind[i]
+            width = spatial_ind[i][0][0]  # Note the (width) spatial index of the maximum element of the sub array
+            width += track_w[i]*r  # Add the (width) location depending on which sub array was taken for max pooling
+            length = spatial_ind[i][1][0]  # Note the (length) spatial index of the maximum element of the sub array
+            length += track_l[i]*r  # Add the (length) location depending on which sub array was taken for max pooling
+            depth = d_ind[i]  # Note the depth index of the maximum element of the sub array
             dLdI[depth][width][length] = replace[i]
         
         return dLdI
