@@ -407,12 +407,13 @@ class ConvNet():
         """
         return np.rot90(matrix, 2)
 
-    def ConvGD(self, dLdoutput, index):
+    def ConvGD(self, dLdoutput, index, t):
         """
         Function that backpropagates through a convolutional layer.
         index = index of the current layer
         dLdoutput = Gradient of the loss function wrt the output of the current layer (channel, row, col)
         Returns dLdinput.
+        t = iterative index
         """
         X = self.getVolumeOutput(index-1)  # Input to the current layer (channel, row, col)
         # Weights of the current layer (numFilter, channel, row, col)
