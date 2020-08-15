@@ -17,12 +17,12 @@ model.cvolume(1,3,10) # Add Convolutional volume (stride length, receptive field
 model.pmaxvolume(2) # Add Pooling layer (receptive field)
 model.FCLayer(10)  # Add FC Layer (number of classifiers)
 # Get final output layer. It is advised to run it once before training, so that all variables are initialised.
-print(model.getVolumeOutput(3))
+print('Test Run Output: ',model.getVolumeOutput(3))
 
 #Since we test the CNN with MNIST data, we write the target output in the required format before sent to training/testing.
 results = np.zeros((len(y),10))  
 for i in range(len(y)):
     results[i,y[i]] = 1
 
-model.train(x[0:1000], results[0:1000], 3) # Train model with 1000 images for 10 epochs
-model.accuracy(x[1000:1200], results[1000:1200])  # Predict accuracy using test data
+model.train(x[0:2000], results[0:2000], 5) # Train model with 2000 images for 5 epochs
+model.accuracy(x[2000:4000], results[2000:4000])  # Predict accuracy using test data
