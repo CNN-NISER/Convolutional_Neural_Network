@@ -162,8 +162,7 @@ class ConvNet():
             for k in range(w):  # Convolve around width
                 for m in range(l):  # Convolve around length
                     # for j in range(d):   #Run over entire depth of prevOut volume
-                    volOutput[i][k][m] += np.sum(np.multiply(
-                        W[i][:][:][:], prevOut[:, k*s: k*s + r, m*s: m*s + r])[:, :, :])
+                    volOutput[i][k][m] += np.sum(np.multiply(W[i][:][:][:], prevOut[:, k*s: k*s + r, m*s: m*s + r])[:, :, :])
 
         volOutput = np.array(volOutput)
         return volOutput
@@ -182,8 +181,7 @@ class ConvNet():
         for j in range(d):
             for k in range(w):
                 for m in range(l):
-                    volOutput[j][k][m] = np.amax(
-                        prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
+                    volOutput[j][k][m] = np.amax(prevOut[j, k*r: (k + 1)*r, m*r: (m + 1)*r])
 
         volOutput = np.array(volOutput)
         return volOutput
@@ -315,14 +313,12 @@ class ConvNet():
         track_w = []
         track_l = []
 
-        dLdI = np.zeros(
-            (int(self.depths[index - 1]), int(self.lengths[index - 1]), int(self.widths[index - 1])))
+        dLdI = np.zeros((int(self.depths[index - 1]), int(self.lengths[index - 1]), int(self.widths[index - 1])))
         replace = dLdOut.flatten()
         for j in range(d):
             for k in range(w):
                 for m in range(l):
-                    spatial_ind.append(np.where(input_vol[j, k*r: (k + 1)*r, m*r: (
-                        m + 1)*r] == input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r].max()))
+                    spatial_ind.append(np.where(input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r] == input_vol[j, k*r: (k + 1)*r, m*r: (m + 1)*r].max()))
                     track_l.append(m)
                     track_w.append(k)
                     d_ind.append(j)
@@ -363,8 +359,7 @@ class ConvNet():
         # Convolving
         for row in range(l):
             for col in range(l):
-                output_matrix[row][col] = np.sum(np.multiply(
-                    inputLayer[row:row+f, col:col+f], convFilter))
+                output_matrix[row][col] = np.sum(np.multiply(inputLayer[row:row+f, col:col+f], convFilter))
 
         return output_matrix
 
@@ -382,8 +377,7 @@ class ConvNet():
         new_dim = n + 2*padding
 
         padded_input = np.zeros([new_dim, new_dim])
-        padded_input[padding:new_dim - padding,
-                     padding:new_dim - padding] = inputLayer
+        padded_input[padding:new_dim - padding,padding:new_dim - padding] = inputLayer
 
         # Now convolve padded_input with convFilter
         output_matrix = self.convolve(padded_input, convFilter)
@@ -404,8 +398,7 @@ class ConvNet():
         dLdoutput = Gradient of the loss function wrt the output of the current layer (channel, row, col)
         Returns dLdinput.
         """
-        X = self.getVolumeOutput(
-            index-1)  # Input to the current layer (channel, row, col)
+        X = self.getVolumeOutput(index-1)  # Input to the current layer (channel, row, col)
         # Weights of the current layer (numFilter, channel, row, col)
         W = self.weights[index - 1]
 
@@ -425,8 +418,7 @@ class ConvNet():
             for channel in range(W.shape[1]):
                 filter_layer = W[fil_ter][channel]
                 dWLayer = self.convolve(X[channel], filter_output)
-                dXLayer = self.rotate180(self.fullConvolve(
-                    self.rotate180(filter_layer), filter_output))
+                dXLayer = self.rotate180(self.fullConvolve(self.rotate180(filter_layer), filter_output))
 
                 # Combine these and return in arrays
                 dLdW[fil_ter][channel] = dWLayer
