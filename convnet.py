@@ -483,4 +483,4 @@ class ConvNet():
             if (np.argmax(y[i]) == correct):
                 cor += 1
         cor /= len(Y)
-        print('Accuracy = ', cor*100)
+        print('Accuracy = ', cor*100, '%')
