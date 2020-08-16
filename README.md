@@ -4,12 +4,12 @@ This repository contains Python code (without the use of any packages, apart fro
 We initialised weights through random number initialisation. The Rectified Linear Unit is used as the activation function and parameter sharing is enabled for this CNN. Cross-Entropy loss has been used for the loss function, without paramter regularisation.
 
 ## Results for MNIST Data
-For testing our CNN with MNIST data, we used one Conv layer (receptive field: 3, filters: 10, stride length: 1), one Pooling layer (receptive field: 2) and one FC layer. Training size: 1000 images, testing size: 1000 images, 10 epochs, learning rate: 0.005. 
+For testing our CNN with MNIST data, we used one Conv layer (receptive field: 3, filters: 10, stride length: 1), one Pooling layer (receptive field: 2) and one FC layer. Training size: 2000 images, testing size: 2000 images, 5 epochs, learning rate: 0.005. 
 1. SGD gave an accuracy of %.
 
 2. Adam gave an accuracy of %.
 
-3. Keras for the same configuration gave an accuracy of %.
+3. Keras for the same configuration gave an accuracy of 94.85%.
 
 ## Future Updates
 1. The option to add any number of FC Layers. 
