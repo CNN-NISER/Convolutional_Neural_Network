@@ -26,6 +26,7 @@ class ConvNet():
         self.beta1 = 0.9
         self.beta2 = 0.999
         self.eps = 1e-4
+        self.count = 1 # Keeps track of iteration number needed for optimisation
 
     def addInput(self, inpImage):  # Assign the input image
         inpImage = np.array(inpImage)
@@ -449,54 +450,59 @@ class ConvNet():
         V = self.beta2 * V + (1 - self.beta2) * np.square(dLdW)
         Vt = V / (1 - self.beta2**t)
 
-        W -= self.learning_rate * Mt / (np.sqrt(Vt) + self.eps)
-        self.weights[index - 1] = W
+        dLdW -= self.learning_rate * Mt / (np.sqrt(Vt) + self.eps)  # Note that the weights update is being multiplied with learning rate
+        #self.weights[index - 1] = W
 
         self.adam_m[index - 1] = M
         self.adam_v[index - 1] = V
 
-        return dLdX
+        return (dLdX,dLdW)
 
-    def backPropagation(self, input, trueResults, totalCount):
+    def backPropagation(self, input, trueResults, mini_batch_size):
         """
-        Updates weights by carrying out backpropagation.
+        Updates weights by carrying out backpropagation using mini-batches.
         trueResults = the expected output from the neural network.
-        totalCount = The number of times the weights have been updated so far.
         """
-        for i in range(len(input)):
-            self.inputImg = np.array(input[i])
-            if(len(self.inputImg.shape) < 3):
-                a = self.inputImg
-                self.inputImg = a.reshape(1, a.shape[0], a.shape[1])
-            # Called once so that all weights are initialised, just in case if not done before
-            out = self.getVolumeOutput(len(self.weights))
-            # Index keeping track of the previous layer
-            nPrev = len(self.weights)
-            doutput = self.FCGD(nPrev, trueResults[i])
-            nPrev -= 1
-
-            totalCount += 1
-            # Loop over the layers
-            while nPrev - 1 >= 0:
-                if(self.track[nPrev - 1] == 'p'):
-                    dhidden = self.PoolGD(doutput, nPrev)
-                else:
-                    dhidden = self.ConvGD(doutput, nPrev, totalCount)
-                doutput = dhidden  # Move to the previous layer
+        size = int(len(input)/mini_batch_size)
+        for batch in range(size):
+            mini_inp = np.array(input[batch*mini_batch_size: (batch + 1)*mini_batch_size])
+            mini_res = np.array(trueResults[batch*mini_batch_size: (batch + 1)*mini_batch_size])
+            for i in range(len(mini_inp)):
+                self.inputImg = np.array(mini_inp[i])
+                if(len(self.inputImg.shape) < 3):
+                    a = self.inputImg
+                    self.inputImg = a.reshape(1, a.shape[0], a.shape[1])
+                # Called once so that all weights are initialised, just in case if not done before
+                out = self.getVolumeOutput(len(self.weights))
+                # Index keeping track of the previous layer
+                nPrev = len(self.weights)
+                doutput = self.FCGD(nPrev, mini_res[i])
                 nPrev -= 1
+                
+                # Loop over the layers
+                while nPrev - 1 >= 0:
+                    if(self.track[nPrev - 1] == 'p'):
+                        dhidden = self.PoolGD(doutput, nPrev)
+                    else:
+                        (dhidden, dLdW) = self.ConvGD(doutput, nPrev, self.count)
+                        self.weights[nPrev - 1] -= dLdW / len(mini_inp)
+                    doutput = dhidden  # Move to the previous layer
+                    nPrev -= 1
+            print('count for adam: ',self.count)
+            self.count = self.count + 1
 
-        return totalCount
 
-    def train(self, input, Y, epochs):
+    def train(self, input, Y, epochs, mini_batch_size):
         """
         Train the neural network.
         Y = the expected results from the neural network.
         epochs = the number of times the neural network should 'learn'.
+        mini-batch-size is the size of mini-batches.
         """
         # Run backPropagation() 'epochs' number of times.
-        total_count = 0
+        self.count = 1
         for i in range(epochs):
-            total_count = self.backPropagation(input, Y, total_count)
+            self.backPropagation(input, Y, mini_batch_size)
             print('Epoch Number: ', i + 1, ' done.')
         print("Training Complete.")
 
@@ -524,4 +530,4 @@ class ConvNet():
             if (np.argmax(y[i]) == correct):
                 cor += 1
         cor /= len(Y)
-        print('Accuracy = ', cor*100)
+        print('Accuracy = ', cor*100, '%')
