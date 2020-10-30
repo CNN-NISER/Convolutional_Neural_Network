@@ -4,6 +4,7 @@ from tensorflow.keras import datasets, layers, models
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
+# (x,y) - Training data of 60000 images, (x2, y2) - Testing data od 10000 images
 (x, y), (x2, y2) = datasets.mnist.load_data()
 # Normalise data
 x = ((x/255) - 0.5)
